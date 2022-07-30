@@ -15,6 +15,7 @@ import HtmlData exposing (..)
 import HtmlData.Attributes exposing (..)
 
 
+{-| -}
 isIndented : Html msg -> Bool
 isIndented element =
     case element of
@@ -23,7 +24,7 @@ isIndented element =
 
         Element eleName _ _ ->
             List.member eleName
-                [ "blockquote", "ol", "ul", "pre" ]
+                [ "blockquote", "dd", "ol", "ul" ]
 
 
 isBlockElement : Html msg -> Bool
@@ -129,6 +130,29 @@ blockElements =
         |> texthtmlFromHtml defaultSanitizeConfig
     --> "<div><h1>Block-level&#32;elements</h1><p>In&#32;this&#32;article,&#32;we&#39;ll&#32;examine&#32;HTML&#32;block-level&#32;elements&#32;and&#32;how&#32;they&#32;differ&#32;from&#32;<a href=\"https://developer.mozilla.org/en-US/docs/Web/HTML/Inline_elements\">inline-level&#32;elements</a>.</p><p>HTML&#32;&#40;<b>Hypertext&#32;Markup&#32;Language</b>&#41;&#32;elements&#32;...&#32;by&#32;CSS&#32;in&#32;the&#32;<a href=\"https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flow_Layout\">Flow&#32;Layout</a>.&#32;A&#32;Block-level&#32;element&#32;occupies&#32;...&#32;contents,&#32;thereby&#32;creating&#32;a&#32;&quot;block&quot;.<aside><strong>Note:</strong>&#32;A&#32;block-level&#32;element&#32;always&#32;starts&#32;on&#32;a&#32;new&#32;line&#32;and&#32;...&#32;as&#32;it&#32;can&#41;.</aside><h3>See&#32;also</h3><ol><li><a>Inline&#32;elements</a></li><li><a>display</a></li><li><a>Block&#32;and&#32;Inline&#32;Layout&#32;in&#32;Normal&#32;Flow</a></li></ol></p></div>"
 
+
+    -- https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dd
+    div []
+        [ p []
+            [ text "Cryptids of Cornwall:" ]
+        , dl []
+            [ dt []
+                [ text "Beast of Bodmin" ]
+            , dd []
+                [ text "A large feline inhabiting Bodmin Moor." ]
+            , dt []
+                [ text "Morgawr" ]
+            , dd []
+                [ text "A sea serpent." ]
+            , dt []
+                [ text "Owlman" ]
+            , dd []
+                [ text "A giant owl-like creature." ]
+            ]
+        ]
+        |> texthtmlFromHtml defaultSanitizeConfig
+    --> "<div><p>Cryptids&#32;of&#32;Cornwall:</p><dl><dt>Beast&#32;of&#32;Bodmin</dt><dd>A&#32;large&#32;feline&#32;inhabiting&#32;Bodmin&#32;Moor.</dd><dt>Morgawr</dt><dd>A&#32;sea&#32;serpent.</dd><dt>Owlman</dt><dd>A&#32;giant&#32;owl-like&#32;creature.</dd></dl></div>"
+
 -}
 texthtmlFromHtml : SanitizeConfig -> Html msg -> String
 texthtmlFromHtml config html =
@@ -192,16 +216,60 @@ texthtmlFromAttr config attr =
             ]
         ]
         |> textplainFromHtml
-    --> String.join "\n\n"
-    --> [ "Block-level elements"
-    --> , "In this article, we'll examine HTML block-level elements and how they differ from inline-level elements https://developer.mozilla.org/en-US/docs/Web/HTML/Inline_elements ."
-    --> , "HTML (Hypertext Markup Language) elements ... by CSS in the Flow Layout https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flow_Layout . A Block-level element occupies ... contents, thereby creating a \"block\"."
-    --> , "    Note: A block-level element always starts on a new line and ... as it can)."
-    --> , "See also"
-    --> , "    1. Inline elements"
-    --> , "    2. display"
-    --> , "    3. Block and Inline Layout in Normal Flow"
-    --> ]
+    --> String.join "\n"
+    -->     [ "Block-level elements"
+    -->     , ""
+    -->     , "In this article, we'll examine HTML block-level elements and how they differ from inline-level elements https://developer.mozilla.org/en-US/docs/Web/HTML/Inline_elements ."
+    -->     , ""
+    -->     , "HTML (Hypertext Markup Language) elements ... by CSS in the Flow Layout https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flow_Layout . A Block-level element occupies ... contents, thereby creating a \"block\"."
+    -->     , ""
+    -->     , "Note: A block-level element always starts on a new line and ... as it can)."
+    -->     , ""
+    -->     , "See also"
+    -->     , ""
+    -->     , "    1. Inline elements"
+    -->     , ""
+    -->     , "    2. display"
+    -->     , ""
+    -->     , "    3. Block and Inline Layout in Normal Flow"
+    -->     ]
+
+
+    -- https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dd
+    div []
+        [ p []
+            [ text "Cryptids of Cornwall:" ]
+        , dl []
+            [ dt []
+                [ text "Beast of Bodmin" ]
+            , dd []
+                [ text "A large feline inhabiting Bodmin Moor." ]
+            , dt []
+                [ text "Morgawr" ]
+            , dd []
+                [ text "A sea serpent." ]
+            , dt []
+                [ text "Owlman" ]
+            , dd []
+                [ text "A giant owl-like creature." ]
+            ]
+        ]
+        |> textplainFromHtml
+    --> String.join "\n"
+    -->     [ "Cryptids of Cornwall:"
+    -->     , ""
+    -->     , "Beast of Bodmin"
+    -->     , ""
+    -->     , "    A large feline inhabiting Bodmin Moor."
+    -->     , ""
+    -->     , "Morgawr"
+    -->     , ""
+    -->     , "    A sea serpent."
+    -->     , ""
+    -->     , "Owlman"
+    -->     , ""
+    -->     , "    A giant owl-like creature."
+    -->     ]
 
 -}
 textplainFromHtml : Html msg -> String
@@ -265,22 +333,15 @@ textplainFromHtml element =
                                     |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
                                 )
 
-                            Element "blockquote" _ children ->
-                                ( acc ++ [ last ]
-                                , children
-                                    |> textplainFromHtml_helper (indent + 4) (always "")
-                                    |> String.append (prefix (indent + 4) ++ prefixEachChild (List.length acc))
-                                )
-
-                            Element "aside" _ children ->
-                                ( acc ++ [ last ]
-                                , children
-                                    |> textplainFromHtml_helper (indent + 4) (always "")
-                                    |> String.append (prefix (indent + 4) ++ prefixEachChild (List.length acc))
-                                )
-
                             Element _ _ children ->
-                                if isBlockElement curr then
+                                if isIndented curr then
+                                    ( acc ++ [ last ]
+                                    , children
+                                        |> textplainFromHtml_helper (indent + 4) (always "")
+                                        |> String.append (prefix (indent + 4) ++ prefixEachChild (List.length acc))
+                                    )
+
+                                else if isBlockElement curr then
                                     ( acc ++ [ last ], prefix indent ++ prefixEachChild (List.length acc) ++ textplainFromHtml_helper indent (always "") children )
 
                                 else
@@ -364,33 +425,53 @@ defaultSanitizeConfig =
 
 {-|
 
-    [ """<h1 class="javascript:yo"> hello </h1>"""
-    , """<a onclick='yo' data-other='yo' href="javascript :alert('Hi')">Cli>ckMe</a><script>alert("hello");</script>"""
-    , """<b onmouseover=alert('Wufff!')>click me!</b>"""
-    , """blah"/><script>alert("hello");</script>"""
-    , """<b onmouseover=alert(‘XSS!‘)></b>"""
-    , """<body style="javascript:yo" onload=alert(‘something’)></body>"""
-    , """<script>alert("hello");</script>"""
-    , """<scr<script>ipt>alert(‘XSS’)</script>"""
-    , """<SCRIPT>yo</SCRIPT>"""
-    , """<IMG SRC=j&#X41vascript:alert('test2')>"""
-    , """<IMG SRC="j&#X41vascript:alert('test2')">"""
-    , """<a onclick='yo' href="javascript :alert('Hi')">ClickMe</a><scr<script>ipt>alert("hello");</script>"""
-    , """<img src="data:text/html;base64,PHNjcmlwdD5hbGVydCgndGVzdDMnKTwvc2NyaXB0Pg">"""
-    , """< h1>strict</h1>"""
-    , """<h1>strict</ h1>"""
-    , ""
-    ]
-    |> List.map String.trim
-    |> List.filterMap (sanitize defaultSanitizeConfig)
-    --> [ "<h1 class=\"javascript:yo\">&#32;hello&#32;</h1>"
-    --> , "<a data-other=\"yo\">Cli&gt;ckMe</a>"
-    --> , "blah&quot;/&gt;"
-    --> , "<b></b>"
-    --> , "<body></body>"
-    --> , "<img>"
-    --> ,"<img>"
-    --> ]
+    sanitize defaultSanitizeConfig """<h1 class="javascript:yo"> hello </h1>"""
+    --> Just "<h1 class=\"javascript:yo\">&#32;hello&#32;</h1>"
+
+    sanitize defaultSanitizeConfig """<a onclick='yo' data-other='yo' href="javascript :alert('Hi')">Cli>ckMe</a><script>alert("hello");</script>"""
+    --> Just "<a data-other=\"yo\">Cli&gt;ckMe</a>"
+
+    sanitize defaultSanitizeConfig """<b onmouseover=alert('Wufff!')>click me!</b>"""
+    --> Nothing
+
+    sanitize defaultSanitizeConfig """blah"/><script>alert("hello");</script>"""
+    --> Just "blah&quot;/&gt;"
+
+    sanitize defaultSanitizeConfig """<b onmouseover=alert(‘XSS!‘)></b>"""
+    --> Just "<b></b>"
+
+    sanitize defaultSanitizeConfig """<body style="javascript:yo" onload=alert(‘something’)></body>"""
+    --> Just "<body></body>"
+
+    sanitize defaultSanitizeConfig """<script>alert("hello");</script>"""
+    --> Nothing
+
+    sanitize defaultSanitizeConfig """<scr<script>ipt>alert(‘XSS’)</script>"""
+    --> Nothing
+
+    sanitize defaultSanitizeConfig """<SCRIPT>yo</SCRIPT>"""
+    --> Nothing
+
+    sanitize defaultSanitizeConfig """<IMG SRC=j&#X41vascript:alert('test2')>"""
+    --> Nothing
+
+    sanitize defaultSanitizeConfig """<IMG SRC="j&#X41vascript:alert('test2')">"""
+    --> Just "<img>"
+
+    sanitize defaultSanitizeConfig """<a onclick='yo' href="javascript :alert('Hi')">ClickMe</a><scr<script>ipt>alert("hello");</script>"""
+    --> Nothing
+
+    sanitize defaultSanitizeConfig """<img src="data:text/html;base64,PHNjcmlwdD5hbGVydCgndGVzdDMnKTwvc2NyaXB0Pg">"""
+    --> Just "<img>"
+
+    sanitize defaultSanitizeConfig """< h1>strict</h1>"""
+    --> Nothing
+
+    sanitize defaultSanitizeConfig """<h1>strict</ h1>"""
+    --> Nothing
+
+    sanitize defaultSanitizeConfig ""
+    --> Nothing
 
 -}
 sanitize : SanitizeConfig -> String -> Maybe String
@@ -459,6 +540,15 @@ normalize =
 
 
 {-| <http://wonko.com/post/html-escaping>
+
+    """
+    <a href="/user/foo" onmouseover="alert(1)">foo" onmouseover="alert(1)</a>
+    <a href='/user/foo' onmouseover='alert(1)'>foo' onmouseover='alert(1)</a>
+    """
+    |> String.trim
+    |> escapeHtml
+    --> "&lt;a&#32;href&#61;&quot;/user/foo&quot;&#32;onmouseover&#61;&quot;alert&#40;1&#41;&quot;&gt;foo&quot;&#32;onmouseover&#61;&quot;alert&#40;1&#41;&lt;/a&gt;\n&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;a&#32;href&#61;&#39;/user/foo&#39;&#32;onmouseover&#61;&#39;alert&#40;1&#41;&#39;&gt;foo&#39;&#32;onmouseover&#61;&#39;alert&#40;1&#41;&lt;/a&gt;"
+
 -}
 escapeHtml : String -> String
 escapeHtml rawText =
