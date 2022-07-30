@@ -1,107 +1,28 @@
 module HtmlData.Extra exposing
-    ( SanitizeConfig
-    , defaultSanitizeConfig
-    , escapeHtml
-    , isBlockElement
-    , isIndented
-    , sanitize
-    , texthtmlFromHtml
-    , textplainFromHtml
+    ( texthtmlFromHtml, textplainFromHtml
+    , SanitizeConfig, defaultSanitizeConfig, TextPlainConfig, defaultTextPlainConfig
+    , escapeHtml, sanitize
     )
 
-import ElmEscapeHtml
-import Html.Parser
-import HtmlData exposing (..)
-import HtmlData.Attributes exposing (..)
-
-
-{-| -}
-isIndented : Html msg -> Bool
-isIndented element =
-    case element of
-        Text _ ->
-            False
-
-        Element eleName _ _ ->
-            List.member eleName
-                [ "blockquote", "dd", "ol", "ul" ]
-
-
-isBlockElement : Html msg -> Bool
-isBlockElement element =
-    case element of
-        Text _ ->
-            False
-
-        Element eleName _ _ ->
-            List.member eleName blockElements
-
-
-{-| <https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements#elements>
--}
-blockElements : List String
-blockElements =
-    [ "address"
-    , "article"
-    , "aside"
-    , "blockquote"
-    , "details"
-    , "dialog"
-    , "dd"
-    , "div"
-    , "dl"
-    , "dt"
-    , "fieldset"
-    , "figcaption"
-    , "figure"
-    , "figcaption"
-    , "footer"
-    , "form"
-    , "h1"
-    , "h2"
-    , "h3"
-    , "h4"
-    , "h5"
-    , "h6"
-    , "header"
-    , "hgroup"
-    , "hr"
-    , "li"
-    , "main"
-    , "nav"
-    , "ol"
-    , "p"
-    , "pre"
-    , "section"
-    , "table"
-    , "ul"
-    ]
-
-
-
---
-
-
 {-|
+
+
+## Functions
+
+to convert `HtmlData.Html` values into `String`
+
+@docs texthtmlFromHtml, textplainFromHtml
+
+@docs SanitizeConfig, defaultSanitizeConfig, TextPlainConfig, defaultTextPlainConfig
+
+@docs escapeHtml, sanitize
+
+
+## More tests
 
     import HtmlData exposing (..)
     import HtmlData.Attributes exposing (..)
 
-    div [ classList
-            [ ("hello", True)
-            , ("world", True )
-            , ("there", False )
-            ]
-        ]
-        [ button [ id "Decrement", name "buttonDecrement" ] [ text "-" ]
-        , div [] [ text ("Hello " ++ String.fromInt 1999) ]
-        , button [ id "Increment", name "buttonIncrement" ] [ text "+" ]
-        ]
-        |> texthtmlFromHtml defaultSanitizeConfig
-    --> "<div class=\"hello&#32;world\"><button id=\"Decrement\" name=\"buttonDecrement\">-</button><div>Hello&#32;1999</div><button id=\"Increment\" name=\"buttonIncrement\">&#43;</button></div>"
-
-    -- roughly copied from
-    -- https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements
     div []
         [ h1 [] [ text "Block-level elements" ]
         , p []
@@ -153,43 +74,8 @@ blockElements =
         |> texthtmlFromHtml defaultSanitizeConfig
     --> "<div><p>Cryptids&#32;of&#32;Cornwall:</p><dl><dt>Beast&#32;of&#32;Bodmin</dt><dd>A&#32;large&#32;feline&#32;inhabiting&#32;Bodmin&#32;Moor.</dd><dt>Morgawr</dt><dd>A&#32;sea&#32;serpent.</dd><dt>Owlman</dt><dd>A&#32;giant&#32;owl-like&#32;creature.</dd></dl></div>"
 
--}
-texthtmlFromHtml : SanitizeConfig -> Html msg -> String
-texthtmlFromHtml config html =
-    case html of
-        Text string ->
-            sanitize config string
-                |> Maybe.withDefault ""
-
-        Element name attrs children ->
-            [ "<" :: name :: List.map (texthtmlFromAttr config) attrs ++ [ ">" ]
-            , List.map (texthtmlFromHtml config) children
-            , [ "</", name, ">" ]
-            ]
-                |> List.concat
-                |> String.join ""
 
 
-texthtmlFromAttr : SanitizeConfig -> Attribute msg -> String
-texthtmlFromAttr config attr =
-    case attr of
-        NoAttribute ->
-            ""
-
-        Attribute rawk rawv ->
-            Maybe.withDefault "" <|
-                Maybe.map2 (\k v -> " " ++ k ++ "=\"" ++ v ++ "\"")
-                    (sanitize config rawk)
-                    (sanitize config rawv)
-
-
-{-|
-
-    import HtmlData exposing (..)
-    import HtmlData.Attributes exposing (..)
-
-    -- roughly copied from
-    -- https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements
     div []
         [ h1 [] [ text "Block-level elements" ]
         , p []
@@ -215,7 +101,7 @@ texthtmlFromAttr config attr =
                 ]
             ]
         ]
-        |> textplainFromHtml
+        |> textplainFromHtml defaultTextPlainConfig
     --> String.join "\n"
     -->     [ "Block-level elements"
     -->     , ""
@@ -254,7 +140,7 @@ texthtmlFromAttr config attr =
                 [ text "A giant owl-like creature." ]
             ]
         ]
-        |> textplainFromHtml
+        |> textplainFromHtml defaultTextPlainConfig
     --> String.join "\n"
     -->     [ "Cryptids of Cornwall:"
     -->     , ""
@@ -272,95 +158,228 @@ texthtmlFromAttr config attr =
     -->     ]
 
 -}
-textplainFromHtml : Html msg -> String
-textplainFromHtml element =
+
+import ElmEscapeHtml
+import Html.Parser
+import HtmlData exposing (..)
+import HtmlData.Attributes exposing (..)
+
+
+{-| Returns `String` in `text/html` format, suitable for use in email or static browser rendering.
+
+    import HtmlData exposing (..)
+    import HtmlData.Attributes exposing (..)
+
+    div [ classList
+            [ ("hello", True)
+            , ("world", True )
+            , ("there", False )
+            ]
+        ]
+        [ button [ id "Decrement", name "buttonDecrement" ] [ text "-" ]
+        , div [] [ text ("Hello " ++ String.fromInt 1999) ]
+        , button [ id "Increment", name "buttonIncrement" ] [ text "+" ]
+        ]
+        |> texthtmlFromHtml defaultSanitizeConfig
+    --> "<div class=\"hello&#32;world\"><button id=\"Decrement\" name=\"buttonDecrement\">-</button><div>Hello&#32;1999</div><button id=\"Increment\" name=\"buttonIncrement\">&#43;</button></div>"
+
+-}
+texthtmlFromHtml : SanitizeConfig -> Html msg -> String
+texthtmlFromHtml config html =
+    case html of
+        Text string ->
+            sanitize config string
+                |> Maybe.withDefault ""
+
+        Element name attrs children ->
+            [ "<" :: name :: List.map (texthtmlFromAttr config) attrs ++ [ ">" ]
+            , List.map (texthtmlFromHtml config) children
+            , [ "</", name, ">" ]
+            ]
+                |> List.concat
+                |> String.join ""
+
+
+texthtmlFromAttr : SanitizeConfig -> Attribute msg -> String
+texthtmlFromAttr config attr =
+    case attr of
+        NoAttribute ->
+            ""
+
+        Attribute rawk rawv ->
+            Maybe.withDefault "" <|
+                Maybe.map2 (\k v -> " " ++ k ++ "=\"" ++ v ++ "\"")
+                    (sanitize config rawk)
+                    (sanitize config rawv)
+
+
+{-| Config for converting html to text
+-}
+type alias TextPlainConfig msg =
+    { textlinkFromHtml : List (Attribute msg) -> List (Html msg) -> String
+    }
+
+
+{-| Default TextPlainConfig provided out of the box
+
+Note: there's a space added behind the string to prevent punctuations from
+being confused as part of url.
+
+    import HtmlData exposing (..)
+    import HtmlData.Attributes exposing (..)
+
+    defaultTextPlainConfig.textlinkFromHtml
+        [ id "some-id"
+        , href "https://example.com/url"
+        , src "https://example.com/src"
+        ]
+        [ text "Hello World "
+        , b [] [ text "Everyone!" ]
+        , text " How are you?"
+        ]
+    --> "Hello World Everyone! How are you? https://example.com/url "
+
+    defaultTextPlainConfig.textlinkFromHtml
+        [ href "https://example.com/url" ]
+        [ text "Click here"
+        ]
+    --> "Click here https://example.com/url "
+
+    defaultTextPlainConfig.textlinkFromHtml
+        [ href "https://example.com/url" ]
+        [ text "See https://example.com/url"
+        ]
+    --> "See https://example.com/url "
+
+    defaultTextPlainConfig.textlinkFromHtml
+        [ href "https://example.com/url" ]
+        [ text "https://example.com/url"
+        ]
+    --> "https://example.com/url "
+
+-}
+defaultTextPlainConfig : TextPlainConfig msg
+defaultTextPlainConfig =
+    { textlinkFromHtml = textlinkFromHtml
+    }
+
+
+{-| Returns `String` in `text/plain` format, suitable for use in email or console output.
+
+    import HtmlData exposing (..)
+    import HtmlData.Attributes exposing (..)
+
+
+    div [ class "hello" ]
+        [ p [] [ text "Hi Bob," ]
+        , ol []
+            [ li [] [ text "Do this" ]
+            , li [] [ a [ href "https://example.com" ] [ text "Go here" ] ]
+            ]
+        ]
+        |> textplainFromHtml defaultTextPlainConfig
+    --> String.join "\n"
+    -->     [ "Hi Bob,"
+    -->     , ""
+    -->     , "    1. Do this"
+    -->     , ""
+    -->     , "    2. Go here https://example.com "
+    -->     ]
+
+-}
+textplainFromHtml : TextPlainConfig msg -> Html msg -> String
+textplainFromHtml config element =
+    textplainFromHtml_helper config 0 (always "") [ element ]
+
+
+textplainFromHtml_helper : TextPlainConfig msg -> Int -> (Int -> String) -> List (Html msg) -> String
+textplainFromHtml_helper config indent prefixEachChild htmlList =
     let
-        textplainFromHtml_helper indent prefixEachChild htmlList =
-            let
-                prefix number =
-                    String.padLeft number ' ' ""
-            in
-            htmlList
-                |> List.foldl
-                    (\curr ( acc, last ) ->
-                        case curr of
-                            Text string ->
-                                ( acc, last ++ string )
-
-                            Element "a" attrs children ->
-                                let
-                                    linkSuffix =
-                                        List.filterMap
-                                            (\attr ->
-                                                case attr of
-                                                    Attribute "href" string ->
-                                                        -- a very slight awkward space after urls to prevent
-                                                        -- punctuations from being confused as part of url
-                                                        Just (string ++ " ")
-
-                                                    Attribute _ _ ->
-                                                        Nothing
-
-                                                    NoAttribute ->
-                                                        Nothing
-                                            )
-                                            attrs
-                                            |> String.join ""
-
-                                    linkContent =
-                                        textplainFromHtml_helper indent (always "") children
-                                            |> String.replace (String.trim linkSuffix) ""
-                                in
-                                ( acc
-                                , last
-                                    ++ ([ linkContent, linkSuffix ]
-                                            |> List.filter (\string -> String.trim string /= "")
-                                            |> String.join " "
-                                       )
-                                )
-
-                            Element "ol" _ children ->
-                                ( acc ++ [ last ]
-                                , children
-                                    |> textplainFromHtml_helper (indent + 2) (\number -> String.fromInt (number + 1) ++ ". ")
-                                    |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
-                                )
-
-                            Element "ul" _ children ->
-                                ( acc ++ [ last ]
-                                , children
-                                    |> textplainFromHtml_helper (indent + 2) (always "- ")
-                                    |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
-                                )
-
-                            Element _ _ children ->
-                                if isIndented curr then
-                                    ( acc ++ [ last ]
-                                    , children
-                                        |> textplainFromHtml_helper (indent + 4) (always "")
-                                        |> String.append (prefix (indent + 4) ++ prefixEachChild (List.length acc))
-                                    )
-
-                                else if isBlockElement curr then
-                                    ( acc ++ [ last ], prefix indent ++ prefixEachChild (List.length acc) ++ textplainFromHtml_helper indent (always "") children )
-
-                                else
-                                    ( acc, last ++ textplainFromHtml_helper indent (always "") children )
-                    )
-                    ( [], "" )
-                |> (\( acc, last ) ->
-                        (acc ++ [ last ])
-                            |> List.filter (\s -> String.trim s /= "")
-                            |> String.join ("\n\n" ++ prefix indent)
-                   )
+        prefix number =
+            String.padLeft number ' ' ""
     in
-    textplainFromHtml_helper 0 (always "") [ element ]
+    htmlList
+        |> List.foldl
+            (\curr ( acc, last ) ->
+                case curr of
+                    Text string ->
+                        ( acc, last ++ string )
+
+                    Element "a" attrs children ->
+                        ( acc, last ++ config.textlinkFromHtml attrs children )
+
+                    Element "ol" _ children ->
+                        ( acc ++ [ last ]
+                        , children
+                            |> textplainFromHtml_helper config (indent + 2) (\number -> String.fromInt (number + 1) ++ ". ")
+                            |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
+                        )
+
+                    Element "ul" _ children ->
+                        ( acc ++ [ last ]
+                        , children
+                            |> textplainFromHtml_helper config (indent + 2) (always "- ")
+                            |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
+                        )
+
+                    Element _ _ children ->
+                        if isIndented curr then
+                            ( acc ++ [ last ]
+                            , children
+                                |> textplainFromHtml_helper config (indent + 4) (always "")
+                                |> String.append (prefix (indent + 4) ++ prefixEachChild (List.length acc))
+                            )
+
+                        else if isBlockElement curr then
+                            ( acc ++ [ last ], prefix indent ++ prefixEachChild (List.length acc) ++ textplainFromHtml_helper config indent (always "") children )
+
+                        else
+                            ( acc, last ++ textplainFromHtml_helper config indent (always "") children )
+            )
+            ( [], "" )
+        |> (\( acc, last ) ->
+                (acc ++ [ last ])
+                    |> List.filter (\s -> String.trim s /= "")
+                    |> String.join ("\n\n" ++ prefix indent)
+           )
+
+
+textlinkFromHtml : List (Attribute msg) -> List (Html msg) -> String
+textlinkFromHtml attrs children =
+    let
+        linkSuffix =
+            List.filterMap
+                (\attr ->
+                    case attr of
+                        Attribute "href" string ->
+                            -- trailing space is by design
+                            Just (string ++ " ")
+
+                        Attribute _ _ ->
+                            Nothing
+
+                        NoAttribute ->
+                            Nothing
+                )
+                attrs
+                |> String.join ""
+
+        linkContent =
+            textplainFromHtml_helper { textlinkFromHtml = textlinkFromHtml } 0 (always "") children
+                |> String.replace (String.trim linkSuffix) ""
+                |> String.trim
+    in
+    [ linkContent, linkSuffix ]
+        |> List.filter (\string -> String.trim string /= "")
+        |> String.join " "
 
 
 
 --
 
 
+{-| Config for sanitization of content (element and attributes)
+-}
 type alias SanitizeConfig =
     { urlAttributes : List String
     , removedAttributes : List String
@@ -368,6 +387,8 @@ type alias SanitizeConfig =
     }
 
 
+{-| Default SanitizeConfig provided out of the box
+-}
 defaultSanitizeConfig : SanitizeConfig
 defaultSanitizeConfig =
     { urlAttributes =
@@ -423,7 +444,7 @@ defaultSanitizeConfig =
     }
 
 
-{-|
+{-| Given some `String`, run it through a sanitizer and get back safe `String` that we can use as `text/html`
 
     sanitize defaultSanitizeConfig """<h1 class="javascript:yo"> hello </h1>"""
     --> Just "<h1 class=\"javascript:yo\">&#32;hello&#32;</h1>"
@@ -541,15 +562,77 @@ normalize =
 
 {-| <http://wonko.com/post/html-escaping>
 
-    """
-    <a href="/user/foo" onmouseover="alert(1)">foo" onmouseover="alert(1)</a>
-    <a href='/user/foo' onmouseover='alert(1)'>foo' onmouseover='alert(1)</a>
-    """
-    |> String.trim
+    "<a href=\"/user/foo\" onmouseover=\"alert(1)\">foo\" onmouseover=\"alert(1)</a>"
     |> escapeHtml
-    --> "&lt;a&#32;href&#61;&quot;/user/foo&quot;&#32;onmouseover&#61;&quot;alert&#40;1&#41;&quot;&gt;foo&quot;&#32;onmouseover&#61;&quot;alert&#40;1&#41;&lt;/a&gt;\n&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;a&#32;href&#61;&#39;/user/foo&#39;&#32;onmouseover&#61;&#39;alert&#40;1&#41;&#39;&gt;foo&#39;&#32;onmouseover&#61;&#39;alert&#40;1&#41;&lt;/a&gt;"
+    --> "&lt;a&#32;href&#61;&quot;/user/foo&quot;&#32;onmouseover&#61;&quot;alert&#40;1&#41;&quot;&gt;foo&quot;&#32;onmouseover&#61;&quot;alert&#40;1&#41;&lt;/a&gt;"
+
+    "<a href='/user/foo' onmouseover='alert(1)'>foo' onmouseover='alert(1)</a>"
+    |> escapeHtml
+    --> "&lt;a&#32;href&#61;&#39;/user/foo&#39;&#32;onmouseover&#61;&#39;alert&#40;1&#41;&#39;&gt;foo&#39;&#32;onmouseover&#61;&#39;alert&#40;1&#41;&lt;/a&gt;"
 
 -}
 escapeHtml : String -> String
 escapeHtml rawText =
     ElmEscapeHtml.escape rawText
+
+
+isIndented : Html msg -> Bool
+isIndented element =
+    case element of
+        Text _ ->
+            False
+
+        Element eleName _ _ ->
+            List.member eleName
+                [ "blockquote", "dd", "ol", "ul" ]
+
+
+isBlockElement : Html msg -> Bool
+isBlockElement element =
+    case element of
+        Text _ ->
+            False
+
+        Element eleName _ _ ->
+            List.member eleName blockElements
+
+
+{-| <https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements#elements>
+-}
+blockElements : List String
+blockElements =
+    [ "address"
+    , "article"
+    , "aside"
+    , "blockquote"
+    , "details"
+    , "dialog"
+    , "dd"
+    , "div"
+    , "dl"
+    , "dt"
+    , "fieldset"
+    , "figcaption"
+    , "figure"
+    , "figcaption"
+    , "footer"
+    , "form"
+    , "h1"
+    , "h2"
+    , "h3"
+    , "h4"
+    , "h5"
+    , "h6"
+    , "header"
+    , "hgroup"
+    , "hr"
+    , "li"
+    , "main"
+    , "nav"
+    , "ol"
+    , "p"
+    , "pre"
+    , "section"
+    , "table"
+    , "ul"
+    ]
