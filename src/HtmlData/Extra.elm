@@ -1,7 +1,7 @@
 module HtmlData.Extra exposing
     ( texthtmlFromHtml, textplainFromHtml
     , SanitizeConfig, defaultSanitizeConfig, TextPlainConfig, defaultTextPlainConfig
-    , escapeHtml, sanitize
+    , escapeHtml, sanitize, toElmHtml
     )
 
 {-|
@@ -15,7 +15,7 @@ to convert `HtmlData.Html` values into `String`
 
 @docs SanitizeConfig, defaultSanitizeConfig, TextPlainConfig, defaultTextPlainConfig
 
-@docs escapeHtml, sanitize
+@docs escapeHtml, sanitize, toElmHtml
 
 
 ## More tests
@@ -160,9 +160,14 @@ to convert `HtmlData.Html` values into `String`
 -}
 
 import ElmEscapeHtml
+import Html
+import Html.Attributes
+import Html.Events
 import Html.Parser
 import HtmlData exposing (..)
 import HtmlData.Attributes exposing (..)
+import Json.Encode
+import VirtualDom
 
 
 {-| Returns `String` in `text/html` format, suitable for use in email or static browser rendering.
@@ -211,6 +216,9 @@ texthtmlFromAttr config attr =
                 Maybe.map2 (\k v -> " " ++ k ++ "=\"" ++ v ++ "\"")
                     (sanitize config rawk)
                     (sanitize config rawv)
+
+        EventListener _ ->
+            ""
 
 
 {-| Config for converting html to text
@@ -359,6 +367,9 @@ textlinkFromHtml attrs children =
                             Nothing
 
                         NoAttribute ->
+                            Nothing
+
+                        EventListener _ ->
                             Nothing
                 )
                 attrs
@@ -636,3 +647,59 @@ blockElements =
     , "table"
     , "ul"
     ]
+
+
+
+--
+
+
+toElmHtml : Html msg -> Html.Html msg
+toElmHtml htmlnode =
+    case htmlnode of
+        Text s ->
+            Html.text s
+
+        Element name attrs children ->
+            Html.node name
+                (attrsToElmHtml attrs)
+                (List.map toElmHtml children)
+
+
+attrsToElmHtml : List (Attribute msg) -> List (Html.Attribute msg)
+attrsToElmHtml attrList =
+    List.foldr
+        (\attr acc ->
+            case attr of
+                Attribute key string ->
+                    VirtualDom.attribute key (Json.Encode.encode 0 (Json.Encode.string string)) :: acc
+
+                NoAttribute ->
+                    acc
+
+                EventListener l ->
+                    listenerToElmHtml l :: acc
+        )
+        []
+        attrList
+
+
+listenerToElmHtml : EventListener msg -> Html.Attribute msg
+listenerToElmHtml l =
+    case l of
+        On s d ->
+            Html.Events.on s d
+
+        OnInput msg ->
+            Html.Events.onInput msg
+
+        OnCheck msg ->
+            Html.Events.onCheck msg
+
+        StopPropagationOn s d ->
+            Html.Events.stopPropagationOn s d
+
+        PreventDefaultOn s d ->
+            Html.Events.preventDefaultOn s d
+
+        Custom s d ->
+            Html.Events.custom s d
