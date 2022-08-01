@@ -1,7 +1,7 @@
 module HtmlData.Extra exposing
-    ( texthtmlFromHtml, textplainFromHtml
+    ( toTextHtml, toTextPlain, toElmHtml
     , SanitizeConfig, defaultSanitizeConfig, TextPlainConfig, defaultTextPlainConfig
-    , escapeHtml, sanitize, toElmHtml
+    , escapeHtml, sanitize
     )
 
 {-|
@@ -11,11 +11,16 @@ module HtmlData.Extra exposing
 
 to convert `HtmlData.Html` values into `String`
 
-@docs texthtmlFromHtml, textplainFromHtml
+@docs toTextHtml, toTextPlain, toElmHtml
+
+
+## Configs
+
+default configurations on how content is sanitized for toTextHtml, and how layout is done for toTextPlain
 
 @docs SanitizeConfig, defaultSanitizeConfig, TextPlainConfig, defaultTextPlainConfig
 
-@docs escapeHtml, sanitize, toElmHtml
+@docs escapeHtml, sanitize
 
 
 ## More tests
@@ -48,7 +53,7 @@ to convert `HtmlData.Html` values into `String`
                 ]
             ]
         ]
-        |> texthtmlFromHtml defaultSanitizeConfig
+        |> toTextHtml defaultSanitizeConfig
     --> "<div><h1>Block-level&#32;elements</h1><p>In&#32;this&#32;article,&#32;we&#39;ll&#32;examine&#32;HTML&#32;block-level&#32;elements&#32;and&#32;how&#32;they&#32;differ&#32;from&#32;<a href=\"https://developer.mozilla.org/en-US/docs/Web/HTML/Inline_elements\">inline-level&#32;elements</a>.</p><p>HTML&#32;&#40;<b>Hypertext&#32;Markup&#32;Language</b>&#41;&#32;elements&#32;...&#32;by&#32;CSS&#32;in&#32;the&#32;<a href=\"https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flow_Layout\">Flow&#32;Layout</a>.&#32;A&#32;Block-level&#32;element&#32;occupies&#32;...&#32;contents,&#32;thereby&#32;creating&#32;a&#32;&quot;block&quot;.<aside><strong>Note:</strong>&#32;A&#32;block-level&#32;element&#32;always&#32;starts&#32;on&#32;a&#32;new&#32;line&#32;and&#32;...&#32;as&#32;it&#32;can&#41;.</aside><h3>See&#32;also</h3><ol><li><a>Inline&#32;elements</a></li><li><a>display</a></li><li><a>Block&#32;and&#32;Inline&#32;Layout&#32;in&#32;Normal&#32;Flow</a></li></ol></p></div>"
 
 
@@ -71,7 +76,7 @@ to convert `HtmlData.Html` values into `String`
                 [ text "A giant owl-like creature." ]
             ]
         ]
-        |> texthtmlFromHtml defaultSanitizeConfig
+        |> toTextHtml defaultSanitizeConfig
     --> "<div><p>Cryptids&#32;of&#32;Cornwall:</p><dl><dt>Beast&#32;of&#32;Bodmin</dt><dd>A&#32;large&#32;feline&#32;inhabiting&#32;Bodmin&#32;Moor.</dd><dt>Morgawr</dt><dd>A&#32;sea&#32;serpent.</dd><dt>Owlman</dt><dd>A&#32;giant&#32;owl-like&#32;creature.</dd></dl></div>"
 
 
@@ -101,7 +106,7 @@ to convert `HtmlData.Html` values into `String`
                 ]
             ]
         ]
-        |> textplainFromHtml defaultTextPlainConfig
+        |> toTextPlain defaultTextPlainConfig
     --> String.join "\n"
     -->     [ "Block-level elements"
     -->     , ""
@@ -140,7 +145,7 @@ to convert `HtmlData.Html` values into `String`
                 [ text "A giant owl-like creature." ]
             ]
         ]
-        |> textplainFromHtml defaultTextPlainConfig
+        |> toTextPlain defaultTextPlainConfig
     --> String.join "\n"
     -->     [ "Cryptids of Cornwall:"
     -->     , ""
@@ -185,12 +190,12 @@ import VirtualDom
         , div [] [ text ("Hello " ++ String.fromInt 1999) ]
         , button [ id "Increment", name "buttonIncrement" ] [ text "+" ]
         ]
-        |> texthtmlFromHtml defaultSanitizeConfig
+        |> toTextHtml defaultSanitizeConfig
     --> "<div class=\"hello&#32;world\"><button id=\"Decrement\" name=\"buttonDecrement\">-</button><div>Hello&#32;1999</div><button id=\"Increment\" name=\"buttonIncrement\">&#43;</button></div>"
 
 -}
-texthtmlFromHtml : SanitizeConfig -> Html msg -> String
-texthtmlFromHtml config html =
+toTextHtml : SanitizeConfig -> Html msg -> String
+toTextHtml config html =
     case html of
         Text string ->
             sanitize config string
@@ -198,7 +203,7 @@ texthtmlFromHtml config html =
 
         Element name attrs children ->
             [ "<" :: name :: List.map (texthtmlFromAttr config) attrs ++ [ ">" ]
-            , List.map (texthtmlFromHtml config) children
+            , List.map (toTextHtml config) children
             , [ "</", name, ">" ]
             ]
                 |> List.concat
@@ -285,7 +290,7 @@ defaultTextPlainConfig =
             , li [] [ a [ href "https://example.com" ] [ text "Go here" ] ]
             ]
         ]
-        |> textplainFromHtml defaultTextPlainConfig
+        |> toTextPlain defaultTextPlainConfig
     --> String.join "\n"
     -->     [ "Hi Bob,"
     -->     , ""
@@ -295,13 +300,13 @@ defaultTextPlainConfig =
     -->     ]
 
 -}
-textplainFromHtml : TextPlainConfig msg -> Html msg -> String
-textplainFromHtml config element =
-    textplainFromHtml_helper config 0 (always "") [ element ]
+toTextPlain : TextPlainConfig msg -> Html msg -> String
+toTextPlain config element =
+    toTextPlain_helper config 0 (always "") [ element ]
 
 
-textplainFromHtml_helper : TextPlainConfig msg -> Int -> (Int -> String) -> List (Html msg) -> String
-textplainFromHtml_helper config indent prefixEachChild htmlList =
+toTextPlain_helper : TextPlainConfig msg -> Int -> (Int -> String) -> List (Html msg) -> String
+toTextPlain_helper config indent prefixEachChild htmlList =
     let
         prefix number =
             String.padLeft number ' ' ""
@@ -319,14 +324,14 @@ textplainFromHtml_helper config indent prefixEachChild htmlList =
                     Element "ol" _ children ->
                         ( acc ++ [ last ]
                         , children
-                            |> textplainFromHtml_helper config (indent + 2) (\number -> String.fromInt (number + 1) ++ ". ")
+                            |> toTextPlain_helper config (indent + 2) (\number -> String.fromInt (number + 1) ++ ". ")
                             |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
                         )
 
                     Element "ul" _ children ->
                         ( acc ++ [ last ]
                         , children
-                            |> textplainFromHtml_helper config (indent + 2) (always "- ")
+                            |> toTextPlain_helper config (indent + 2) (always "- ")
                             |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
                         )
 
@@ -334,15 +339,15 @@ textplainFromHtml_helper config indent prefixEachChild htmlList =
                         if isIndented curr then
                             ( acc ++ [ last ]
                             , children
-                                |> textplainFromHtml_helper config (indent + 4) (always "")
+                                |> toTextPlain_helper config (indent + 4) (always "")
                                 |> String.append (prefix (indent + 4) ++ prefixEachChild (List.length acc))
                             )
 
                         else if isBlockElement curr then
-                            ( acc ++ [ last ], prefix indent ++ prefixEachChild (List.length acc) ++ textplainFromHtml_helper config indent (always "") children )
+                            ( acc ++ [ last ], prefix indent ++ prefixEachChild (List.length acc) ++ toTextPlain_helper config indent (always "") children )
 
                         else
-                            ( acc, last ++ textplainFromHtml_helper config indent (always "") children )
+                            ( acc, last ++ toTextPlain_helper config indent (always "") children )
             )
             ( [], "" )
         |> (\( acc, last ) ->
@@ -376,7 +381,7 @@ textlinkFromHtml attrs children =
                 |> String.join ""
 
         linkContent =
-            textplainFromHtml_helper { textlinkFromHtml = textlinkFromHtml } 0 (always "") children
+            toTextPlain_helper { textlinkFromHtml = textlinkFromHtml } 0 (always "") children
                 |> String.replace (String.trim linkSuffix) ""
                 |> String.trim
     in
@@ -653,6 +658,8 @@ blockElements =
 --
 
 
+{-| Converts into a regular elm/html `Html msg`
+-}
 toElmHtml : Html msg -> Html.Html msg
 toElmHtml htmlnode =
     case htmlnode of
