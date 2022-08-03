@@ -1,6 +1,6 @@
 # HtmlData.Extra
 
-Helper functions to work with [HtmlData](https://package.elm-lang.org/packages/choonkeat/html-data/latest)
+Helper functions to work with [HtmlData](https://package.elm-lang.org/packages/choonkeat/html-data/latest/)
 
 - `toTextHtml` produces a html `String`
 - `toTextPlain` produces text `String` with reasonable layout to mimic html ([sample](https://package.elm-lang.org/packages/choonkeat/html-data-extra/latest/HtmlData-Extra#toTextPlain))
@@ -14,4 +14,4 @@ BSD
 
 ## Why is this a separate package from choonkeat/html-data
 
-This package needed several dependencies: `elm/json`, `hecrj/html-parser`, `marcosh/elm-html-to-unicode`. I felt it was unnecessary to impose it on the pure data type package [choonkeat/html-data](https://package.elm-lang.org/packages/choonkeat/html-data); anyone else should be able to write their own functions to produce text/html or text/plain `String` with different dependencies than what I've chosen.
+This package needed several dependencies: `elm/json`, `hecrj/html-parser`, `marcosh/elm-html-to-unicode`. I felt it was unnecessary to impose it on the pure data type package [choonkeat/html-data](https://package.elm-lang.org/packages/choonkeat/html-data/latest/); anyone else should be able to write their own functions to produce text/html or text/plain `String` with different dependencies than what I've chosen.
