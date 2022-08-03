@@ -168,6 +168,7 @@ import ElmEscapeHtml
 import Html
 import Html.Attributes
 import Html.Events
+import Html.Keyed
 import Html.Parser
 import HtmlData exposing (..)
 import HtmlData.Attributes exposing (..)
@@ -208,6 +209,9 @@ toTextHtml config html =
             ]
                 |> List.concat
                 |> String.join ""
+
+        KeyedElement name attrs children ->
+            toTextHtml config (Element name attrs (List.map Tuple.second children))
 
 
 texthtmlFromAttr : SanitizeConfig -> Attribute msg -> String
@@ -310,46 +314,48 @@ toTextPlain_helper config indent prefixEachChild htmlList =
     let
         prefix number =
             String.padLeft number ' ' ""
+
+        each curr ( acc, last ) =
+            case curr of
+                Text string ->
+                    ( acc, last ++ string )
+
+                KeyedElement name attrs children ->
+                    each (Element name attrs (List.map Tuple.second children)) ( acc, last )
+
+                Element "a" attrs children ->
+                    ( acc, last ++ config.textlinkFromHtml attrs children )
+
+                Element "ol" _ children ->
+                    ( acc ++ [ last ]
+                    , children
+                        |> toTextPlain_helper config (indent + 2) (\number -> String.fromInt (number + 1) ++ ". ")
+                        |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
+                    )
+
+                Element "ul" _ children ->
+                    ( acc ++ [ last ]
+                    , children
+                        |> toTextPlain_helper config (indent + 2) (always "- ")
+                        |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
+                    )
+
+                Element _ _ children ->
+                    if isIndented curr then
+                        ( acc ++ [ last ]
+                        , children
+                            |> toTextPlain_helper config (indent + 4) (always "")
+                            |> String.append (prefix (indent + 4) ++ prefixEachChild (List.length acc))
+                        )
+
+                    else if isBlockElement curr then
+                        ( acc ++ [ last ], prefix indent ++ prefixEachChild (List.length acc) ++ toTextPlain_helper config indent (always "") children )
+
+                    else
+                        ( acc, last ++ toTextPlain_helper config indent (always "") children )
     in
     htmlList
-        |> List.foldl
-            (\curr ( acc, last ) ->
-                case curr of
-                    Text string ->
-                        ( acc, last ++ string )
-
-                    Element "a" attrs children ->
-                        ( acc, last ++ config.textlinkFromHtml attrs children )
-
-                    Element "ol" _ children ->
-                        ( acc ++ [ last ]
-                        , children
-                            |> toTextPlain_helper config (indent + 2) (\number -> String.fromInt (number + 1) ++ ". ")
-                            |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
-                        )
-
-                    Element "ul" _ children ->
-                        ( acc ++ [ last ]
-                        , children
-                            |> toTextPlain_helper config (indent + 2) (always "- ")
-                            |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
-                        )
-
-                    Element _ _ children ->
-                        if isIndented curr then
-                            ( acc ++ [ last ]
-                            , children
-                                |> toTextPlain_helper config (indent + 4) (always "")
-                                |> String.append (prefix (indent + 4) ++ prefixEachChild (List.length acc))
-                            )
-
-                        else if isBlockElement curr then
-                            ( acc ++ [ last ], prefix indent ++ prefixEachChild (List.length acc) ++ toTextPlain_helper config indent (always "") children )
-
-                        else
-                            ( acc, last ++ toTextPlain_helper config indent (always "") children )
-            )
-            ( [], "" )
+        |> List.foldl each ( [], "" )
         |> (\( acc, last ) ->
                 (acc ++ [ last ])
                     |> List.filter (\s -> String.trim s /= "")
@@ -602,6 +608,9 @@ isIndented element =
             List.member eleName
                 [ "blockquote", "dd", "ol", "ul" ]
 
+        KeyedElement name attrs children ->
+            isIndented (Element name attrs (List.map Tuple.second children))
+
 
 isBlockElement : Html msg -> Bool
 isBlockElement element =
@@ -611,6 +620,9 @@ isBlockElement element =
 
         Element eleName _ _ ->
             List.member eleName blockElements
+
+        KeyedElement name attrs children ->
+            isBlockElement (Element name attrs (List.map Tuple.second children))
 
 
 {-| <https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements#elements>
@@ -671,6 +683,11 @@ toElmHtml htmlnode =
                 (attrsToElmHtml attrs)
                 (List.map toElmHtml children)
 
+        KeyedElement name attrs children ->
+            Html.Keyed.node name
+                (attrsToElmHtml attrs)
+                (List.map (Tuple.mapSecond toElmHtml) children)
+
 
 attrsToElmHtml : List (Attribute msg) -> List (Html.Attribute msg)
 attrsToElmHtml attrList =
@@ -678,7 +695,7 @@ attrsToElmHtml attrList =
         (\attr acc ->
             case attr of
                 Attribute key string ->
-                    VirtualDom.attribute key (Json.Encode.encode 0 (Json.Encode.string string)) :: acc
+                    VirtualDom.attribute key string :: acc
 
                 NoAttribute ->
                     acc
