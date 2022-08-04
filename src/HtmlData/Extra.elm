@@ -213,6 +213,9 @@ toTextHtml config html =
         KeyedElement name attrs children ->
             toTextHtml config (Element name attrs (List.map Tuple.second children))
 
+        LazyElement lazyf _ ->
+            toTextHtml config (lazyf ())
+
 
 texthtmlFromAttr : SanitizeConfig -> Attribute msg -> String
 texthtmlFromAttr config attr =
@@ -228,6 +231,11 @@ texthtmlFromAttr config attr =
 
         EventListener _ ->
             ""
+
+        Property rawk value ->
+            Maybe.withDefault "" <|
+                Maybe.map (\k -> " " ++ k ++ "=" ++ Json.Encode.encode 0 value)
+                    (sanitize config rawk)
 
 
 {-| Config for converting html to text
@@ -323,6 +331,9 @@ toTextPlain_helper config indent prefixEachChild htmlList =
                 KeyedElement name attrs children ->
                     each (Element name attrs (List.map Tuple.second children)) ( acc, last )
 
+                LazyElement lazyf _ ->
+                    each (lazyf ()) ( acc, last )
+
                 Element "a" attrs children ->
                     ( acc, last ++ config.textlinkFromHtml attrs children )
 
@@ -381,6 +392,9 @@ textlinkFromHtml attrs children =
                             Nothing
 
                         EventListener _ ->
+                            Nothing
+
+                        Property _ _ ->
                             Nothing
                 )
                 attrs
@@ -611,6 +625,9 @@ isIndented element =
         KeyedElement name attrs children ->
             isIndented (Element name attrs (List.map Tuple.second children))
 
+        LazyElement lazyf _ ->
+            isIndented (lazyf ())
+
 
 isBlockElement : Html msg -> Bool
 isBlockElement element =
@@ -623,6 +640,9 @@ isBlockElement element =
 
         KeyedElement name attrs children ->
             isBlockElement (Element name attrs (List.map Tuple.second children))
+
+        LazyElement lazyf _ ->
+            isBlockElement (lazyf ())
 
 
 {-| <https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements#elements>
@@ -688,6 +708,9 @@ toElmHtml htmlnode =
                 (attrsToElmHtml attrs)
                 (List.map (Tuple.mapSecond toElmHtml) children)
 
+        LazyElement _ lazyHtml ->
+            lazyHtml ()
+
 
 attrsToElmHtml : List (Attribute msg) -> List (Html.Attribute msg)
 attrsToElmHtml attrList =
@@ -702,6 +725,9 @@ attrsToElmHtml attrList =
 
                 EventListener l ->
                     listenerToElmHtml l :: acc
+
+                Property key value ->
+                    VirtualDom.property key value :: acc
         )
         []
         attrList
