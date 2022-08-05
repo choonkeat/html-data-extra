@@ -162,8 +162,23 @@ default configurations on how content is sanitized for toTextHtml, and how layou
     -->     , "    A giant owl-like creature."
     -->     ]
 
+    div []
+        [ text "hi"
+        , p [] [ text "hello" ]
+        , text "world"
+        ]
+        |> toTextPlain defaultTextPlainConfig
+    --> String.join "\n"
+    -->     [ "hi"
+    -->     , ""
+    -->     , "hello"
+    -->     , ""
+    -->     , "world"
+    -->     ]
+
 -}
 
+import Array exposing (Array)
 import ElmEscapeHtml
 import Html
 import Html.Attributes
@@ -320,58 +335,91 @@ toTextPlain config element =
 toTextPlain_helper : TextPlainConfig msg -> Int -> (Int -> String) -> List (Html msg) -> String
 toTextPlain_helper config indent prefixEachChild htmlList =
     let
-        prefix number =
-            String.padLeft number ' ' ""
-
-        each curr ( acc, last ) =
+        each curr ( acc, inlineText ) =
             case curr of
                 Text string ->
-                    ( acc, last ++ string )
+                    ( acc, inlineText ++ string )
 
                 KeyedElement name attrs children ->
-                    each (Element name attrs (List.map Tuple.second children)) ( acc, last )
+                    each (Element name attrs (List.map Tuple.second children)) ( acc, inlineText )
 
                 LazyElement lazyf _ ->
-                    each (lazyf ()) ( acc, last )
+                    each (lazyf ()) ( acc, inlineText )
 
                 Element "a" attrs children ->
-                    ( acc, last ++ config.textlinkFromHtml attrs children )
+                    ( acc, inlineText ++ config.textlinkFromHtml attrs children )
 
                 Element "ol" _ children ->
-                    ( acc ++ [ last ]
-                    , children
-                        |> toTextPlain_helper config (indent + 2) (\number -> String.fromInt (number + 1) ++ ". ")
-                        |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
+                    ( inlineText
+                        |> asArrayUnless String.isEmpty
+                        |> Array.append acc
+                        |> Array.push
+                            (children
+                                |> toTextPlain_helper config (indent + 2) (\number -> String.fromInt (number + 1) ++ ". ")
+                                |> String.append (prefix (indent + 2) ++ prefixEachChild (Array.length acc))
+                            )
+                    , ""
                     )
 
                 Element "ul" _ children ->
-                    ( acc ++ [ last ]
-                    , children
-                        |> toTextPlain_helper config (indent + 2) (always "- ")
-                        |> String.append (prefix (indent + 2) ++ prefixEachChild (List.length acc))
+                    ( inlineText
+                        |> asArrayUnless String.isEmpty
+                        |> Array.append acc
+                        |> Array.push
+                            (children
+                                |> toTextPlain_helper config (indent + 2) (always "- ")
+                                |> String.append (prefix (indent + 2) ++ prefixEachChild (Array.length acc))
+                            )
+                    , ""
                     )
 
                 Element _ _ children ->
                     if isIndented curr then
-                        ( acc ++ [ last ]
-                        , children
-                            |> toTextPlain_helper config (indent + 4) (always "")
-                            |> String.append (prefix (indent + 4) ++ prefixEachChild (List.length acc))
+                        ( inlineText
+                            |> asArrayUnless String.isEmpty
+                            |> Array.append acc
+                            |> Array.push
+                                (children
+                                    |> toTextPlain_helper config (indent + 4) (always "")
+                                    |> String.append (prefix (indent + 4) ++ prefixEachChild (Array.length acc))
+                                )
+                        , ""
                         )
 
                     else if isBlockElement curr then
-                        ( acc ++ [ last ], prefix indent ++ prefixEachChild (List.length acc) ++ toTextPlain_helper config indent (always "") children )
+                        ( inlineText
+                            |> asArrayUnless String.isEmpty
+                            |> Array.append acc
+                            |> Array.push (prefix indent ++ prefixEachChild (Array.length acc) ++ toTextPlain_helper config indent (always "") children)
+                        , ""
+                        )
 
                     else
-                        ( acc, last ++ toTextPlain_helper config indent (always "") children )
+                        ( acc, inlineText ++ toTextPlain_helper config indent (always "") children )
     in
     htmlList
-        |> List.foldl each ( [], "" )
-        |> (\( acc, last ) ->
-                (acc ++ [ last ])
-                    |> List.filter (\s -> String.trim s /= "")
+        |> List.foldl each ( Array.empty, "" )
+        |> (\( acc, inlineText ) ->
+                inlineText
+                    |> asArrayUnless String.isEmpty
+                    |> Array.append acc
+                    |> Array.toList
                     |> String.join ("\n\n" ++ prefix indent)
            )
+
+
+prefix : Int -> String
+prefix number =
+    String.padLeft number ' ' ""
+
+
+asArrayUnless : (String -> Bool) -> String -> Array String
+asArrayUnless unless last =
+    if unless last then
+        Array.empty
+
+    else
+        Array.fromList [ last ]
 
 
 textlinkFromHtml : List (Attribute msg) -> List (Html msg) -> String
