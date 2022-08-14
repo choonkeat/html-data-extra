@@ -5,6 +5,7 @@ Helper functions to work with [HtmlData](https://package.elm-lang.org/packages/c
 - `toTextHtml` produces a html `String`
 - `toTextPlain` produces text `String` with reasonable layout to mimic html ([sample](https://package.elm-lang.org/packages/choonkeat/html-data-extra/latest/HtmlData-Extra#toTextPlain))
 - `toElmHtml` produces the regular elm/html `Html msg` with interactivity intact
+- `fromHtmlParserNodes` takes parsed [`List Html.Parser.Node`](https://package.elm-lang.org/packages/hecrj/html-parser/latest/Html-Parser#run) and return a `List (HtmlData.Html msg)`
 
 See them in action at https://html-data.netlify.app converting the same `HtmlData.Html msg` value into the 3 usages.
 

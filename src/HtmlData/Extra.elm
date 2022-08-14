@@ -1,5 +1,6 @@
 module HtmlData.Extra exposing
     ( toTextHtml, toTextPlain, toElmHtml
+    , fromHtmlParserNodes
     , SanitizeConfig, defaultSanitizeConfig, TextPlainConfig, defaultTextPlainConfig
     , escapeHtml, sanitize
     )
@@ -7,11 +8,16 @@ module HtmlData.Extra exposing
 {-|
 
 
-## Functions
+## Functions to
 
 to convert `HtmlData.Html` values into `String`
 
 @docs toTextHtml, toTextPlain, toElmHtml
+
+
+## Functions from
+
+@docs fromHtmlParserNodes
 
 
 ## Configs
@@ -23,7 +29,7 @@ default configurations on how content is sanitized for toTextHtml, and how layou
 @docs escapeHtml, sanitize
 
 
-## More tests
+## More ~tests~ examples
 
     import HtmlData exposing (..)
     import HtmlData.Attributes exposing (..)
@@ -738,7 +744,7 @@ blockElements =
 --
 
 
-{-| Converts into a regular elm/html `Html msg`
+{-| Converts into a regular [elm/html `Html msg`](https://package.elm-lang.org/packages/elm/html/1.0.0/Html)
 -}
 toElmHtml : Html msg -> Html.Html msg
 toElmHtml htmlnode =
@@ -801,3 +807,57 @@ listenerToElmHtml l =
 
         Custom s d ->
             Html.Events.custom s d
+
+
+
+--
+
+
+{-| Converts from [`Html.Parser.Node`](https://package.elm-lang.org/packages/hecrj/html-parser/latest/Html-Parser#Node) into `HtmlData.Html`
+
+We could achieve `String -> List (HtmlData.Html msg)` by
+
+1.  combining with [`Html.Parser.run`](https://package.elm-lang.org/packages/hecrj/html-parser/latest/Html-Parser#run)
+
+2.  adding fallback value for error
+
+Like this
+
+    import Html.Parser
+    import HtmlData exposing (..)
+    import HtmlData.Attributes exposing (..)
+
+    fromString : String -> List (Html msg)
+    fromString str =
+        case Html.Parser.run str of
+            Err err ->
+                [ text (Debug.toString err) ]
+            --
+            Ok nodes ->
+                fromHtmlParserNodes nodes
+
+    fromString "<p class=\"hello world\"><b>young</b> and <em>dangerous</em></p>"
+    --> [Element "p" [Attribute "class" "hello world"] [Element "b" [] [Text "young"],Text " and ",Element "em" [] [Text "dangerous"]]]
+
+-}
+fromHtmlParserNodes : List Html.Parser.Node -> List (Html msg)
+fromHtmlParserNodes nodes =
+    List.map fromHtmlParserNodes_helper nodes
+
+
+fromHtmlParserNodes_helper : Html.Parser.Node -> Html msg
+fromHtmlParserNodes_helper node =
+    case node of
+        Html.Parser.Element name attrs children ->
+            Element name (List.map fromHtmlParserAttr attrs) (List.map fromHtmlParserNodes_helper children)
+
+        Html.Parser.Text s ->
+            text s
+
+        Html.Parser.Comment _ ->
+            text ""
+
+
+fromHtmlParserAttr : ( String, String ) -> Attribute msg
+fromHtmlParserAttr ( k, v ) =
+    Attribute k v
