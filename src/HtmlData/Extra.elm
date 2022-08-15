@@ -172,6 +172,13 @@ default configurations on how content is sanitized for toTextHtml, and how layou
         [ text "hi"
         , p [] [ text "hello" ]
         , text "world"
+        , blockquote []
+            [ text "alpha"
+            , br [] []
+            , text "beta"
+            , br [] []
+            , text "charlie"
+            ]
         ]
         |> toTextPlain defaultTextPlainConfig
     --> String.join "\n"
@@ -180,6 +187,10 @@ default configurations on how content is sanitized for toTextHtml, and how layou
     -->     , "hello"
     -->     , ""
     -->     , "world"
+    -->     , ""
+    -->     , "    alpha"
+    -->     , "    beta"
+    -->     , "    charlie"
     -->     ]
 
 -}
@@ -376,6 +387,9 @@ toTextPlain_helper config indent prefixEachChild htmlList =
                             )
                     , ""
                     )
+
+                Element "br" _ _ ->
+                    ( acc, inlineText ++ "\n" ++ prefix indent )
 
                 Element _ _ children ->
                     if isIndented curr then

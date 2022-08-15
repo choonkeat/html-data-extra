@@ -3,7 +3,7 @@
     "name": "choonkeat/html-data-extra",
     "summary": "Helper functions for choonkeat/html-data",
     "license": "BSD-3-Clause",
-    "version": "3.0.0",
+    "version": "3.0.1",
     "exposed-modules": [
         "HtmlData.Extra"
     ],
