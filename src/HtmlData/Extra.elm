@@ -193,9 +193,18 @@ default configurations on how content is sanitized for toTextHtml, and how layou
     -->     , "    charlie"
     -->     ]
 
+    div
+        [ style "display" "none"
+        , style "padding" "0.25rem 0.5em"
+        ]
+        [ text "hello" ]
+        |> toTextHtml
+    --> "<div style=\"display:none;padding:0.25rem&#32;0.5em\">hello</div>"
+
 -}
 
 import Array exposing (Array)
+import Dict exposing (Dict)
 import ElmEscapeHtml
 import Html
 import Html.Attributes
@@ -238,7 +247,7 @@ toTextHtml html =
             escapeHtml string
 
         Element name attrs children ->
-            [ "<" :: name :: List.map texthtmlFromAttr attrs ++ [ ">" ]
+            [ "<" :: name :: List.map texthtmlFromAttr (combineAttrs attrs) ++ [ ">" ]
             , List.map toTextHtml children
             , [ "</", name, ">" ]
             ]
@@ -250,6 +259,47 @@ toTextHtml html =
 
         LazyElement lazyf _ ->
             toTextHtml (lazyf ())
+
+
+combineAttrs : List (Attribute msg) -> List (Attribute msg)
+combineAttrs attrs =
+    let
+        ( attrList, combined ) =
+            List.foldl
+                (\attr ( list, dict ) ->
+                    case attr of
+                        Attribute "style" value ->
+                            case Dict.get "style" dict of
+                                Nothing ->
+                                    ( list, Dict.insert "style" value dict )
+
+                                Just s ->
+                                    ( list, Dict.insert "style" (s ++ ";" ++ value) dict )
+
+                        Attribute "class" value ->
+                            case Dict.get "class" dict of
+                                Nothing ->
+                                    ( list, Dict.insert "class" value dict )
+
+                                Just s ->
+                                    ( list, Dict.insert "class" (s ++ " " ++ value) dict )
+
+                        Attribute key value ->
+                            ( attr :: list, dict )
+
+                        NoAttribute ->
+                            ( attr :: list, dict )
+
+                        EventListener _ ->
+                            ( attr :: list, dict )
+
+                        Property _ _ ->
+                            ( attr :: list, dict )
+                )
+                ( [], Dict.empty )
+                attrs
+    in
+    List.reverse attrList ++ List.map (\( k, v ) -> Attribute k v) (Dict.toList combined)
 
 
 texthtmlFromAttr : Attribute msg -> String
